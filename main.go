@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -38,6 +39,15 @@ func (c *SafeCounter) Inc() {
 func main(){
 	version := "1.2-Alpha"
 	initConfig(version)
+	if !canContinue{
+		setVariables()
+		fmt.Println("The configuration safety check has failed. This can happen if you hit ctrl-c.")
+		if debugEnabled{
+			fmt.Println("Debug information will be printed. This may help find the issue. Cannot continue, sorry.")
+			debug.PrintStack()
+		}
+		os.Exit(1)
+	}
 	setVariables()
 	fmt.Println("======")
 	fmt.Println("Welcome to the Zimbra LDAP Database Utility " + version + "!")
@@ -108,22 +118,14 @@ func main(){
 			if err != nil {
 				return err
 			}
-			//defer cur.Close()
 
 			for {
-				k, v, err := cur.Get(nil, nil, lmdb.Next)
+				_,_,err := cur.Get(nil, nil, lmdb.Next)
 				if lmdb.IsNotFound(err) {
 					return nil
 				}
 				if err != nil {
 					return err
-				}
-
-				if string(k)=="test"{
-
-				}
-				if string(v)=="test"{
-
 				}
 
 				for{
@@ -134,7 +136,6 @@ func main(){
 						finished = true
 						break
 					}else{
-						//log.Print(int(delta))
 						time.Sleep(1*time.Second)
 					}
 

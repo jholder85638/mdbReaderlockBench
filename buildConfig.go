@@ -1,4 +1,9 @@
-#testingSettings
+package main
+
+import "os"
+
+func buildConfiguration(fileLocation string) {
+	configText := `#testingSettings
 # Please do note remove the $ from the lines.
 # $ is the help text in the menu.
 
@@ -99,4 +104,30 @@ disable_clear_screen=false
 #   example:
 #       type=events
 #       goal=300
-#       ^ this would end the test after 300 events were performed.
+#       ^ this would end the test after 300 events were performed.`
+
+	var _, err = os.Create(fileLocation)
+	if isError(err) {
+		return
+	}
+	// open file using READ & WRITE permission
+	var file, err2 = os.OpenFile(fileLocation, os.O_RDWR, 0644)
+	if isError(err2) {
+		return
+	}
+	defer file.Close()
+
+	// write some text line-by-line to file
+	_, err = file.WriteString(configText)
+	if isError(err) {
+		return
+	}
+
+	// save changes
+	err = file.Sync()
+	if isError(err) {
+		return
+	}
+
+	//fmt.Println("==> done writing to file")
+}
