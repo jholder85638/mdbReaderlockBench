@@ -7,10 +7,10 @@ import (
 	_ "log"
 	"os"
 	"os/exec"
+	"../utils"
+	"fmt"
 	//"strconv"
 	"strings"
-	"fmt"
-	utils "../utils"
 )
 
 // OnClick sets the callback that is called when one clicks button
@@ -18,6 +18,7 @@ import (
 func (b Button) OnClick(fn func(ui.Event)) {
 	b.onClick = fn
 }
+
 type QuestionDialog struct {
 	View    *ui.Window
 	Result  int
@@ -30,13 +31,15 @@ type Button struct {
 	pressed     int32
 	onClick     func(ui.Event)
 }
+
 var OptionsRight *ui.Frame
 var HelpField *ui.Frame
 var newValuesHolder map[string]string
-func ConfigurationEditor(configMap map[string]string, configFile string) int{
-	tmpMainMenuString :=""
-	for k,_ := range configMap{
-		tmpMainMenuString +=k+"||"
+
+func ConfigurationEditor(configMap map[string]string, configFile string) int {
+	tmpMainMenuString := ""
+	for k, _ := range configMap {
+		tmpMainMenuString += k + "||"
 	}
 	mainListBoxOptions := strings.Split(tmpMainMenuString, "||")
 	cw, ch := term.Size()
@@ -48,10 +51,8 @@ func ConfigurationEditor(configMap map[string]string, configFile string) int{
 	//frmLeft.SetGaps(ui.KeepValue, 1)
 	frmLeft.SetPaddings(1, 1)
 
-
-
 	logBox := ui.CreateListBox(frmLeft, 20, 15, ui.Fixed)
-	for _,v := range mainListBoxOptions{
+	for _, v := range mainListBoxOptions {
 		logBox.AddItem(v)
 	}
 	var fieldGroup *ui.Frame
@@ -61,7 +62,7 @@ func ConfigurationEditor(configMap map[string]string, configFile string) int{
 	oldValuesHolder := make(map[string]string)
 
 	OptionsRight = frmRight
-	logBox.OnSelectItem(func(event ui.Event){
+	logBox.OnSelectItem(func(event ui.Event) {
 		newValuesHolder = make(map[string]string)
 		OptionsRight.Destroy()
 		subItems := strings.Split(configMap[logBox.SelectedItemText()], "||")
@@ -69,36 +70,36 @@ func ConfigurationEditor(configMap map[string]string, configFile string) int{
 		OptionsRight = frmRight
 		frmRight.SetPack(ui.Vertical)
 		frmRight.SetGaps(1, 0)
-		maxDeltalen :=0
-		for _,v := range subItems {
-			if len(v)>maxDeltalen{
+		maxDeltalen := 0
+		for _, v := range subItems {
+			if len(v) > maxDeltalen {
 				maxDeltalen = len(v)
 			}
 		}
-		for _,v := range subItems {
-			if strings.Contains(v, "="){
+		for _, v := range subItems {
+			if strings.Contains(v, "=") {
 				fieldGroup = ui.CreateFrame(frmRight, 70, 1, ui.BorderNone, ui.Horizontal)
 				fieldGroup.SetPack(ui.Horizontal)
 				fieldGroup.SetGaps(1, 1)
 				label := strings.Split(v, "=")[0]
 
-				spacingBuffer :=maxDeltalen/2
-				if spacingBuffer>20{
-					spacingBuffer=20
+				spacingBuffer := maxDeltalen / 2
+				if spacingBuffer > 20 {
+					spacingBuffer = 20
 				}
 				labelTextLen := len(label)
-				labelBuffer :=""
-				for{
-					if labelTextLen<=spacingBuffer{
-						labelBuffer +=" "
+				labelBuffer := ""
+				for {
+					if labelTextLen <= spacingBuffer {
+						labelBuffer += " "
 						labelTextLen++
-					}else{
+					} else {
 						break
 					}
 				}
 
 				value := strings.Split(v, "=")[1]
-				ui.CreateLabel(fieldGroup, ui.AutoSize, ui.AutoSize, strings.Replace(labelBuffer+label,"_"," ",-1)+":", ui.Fixed)
+				ui.CreateLabel(fieldGroup, ui.AutoSize, ui.AutoSize, strings.Replace(labelBuffer+label, "_", " ", -1)+":", ui.Fixed)
 				thisEditField := ui.CreateEditField(fieldGroup, ui.AutoSize, value, 0)
 				ui.CreateFrame(frmRight, 70, 1, ui.BorderNone, ui.Horizontal)
 
@@ -119,7 +120,7 @@ func ConfigurationEditor(configMap map[string]string, configFile string) int{
 					HelpField.SetPack(ui.Horizontal)
 					HelpField.SetGaps(1, 1)
 					lineCount, lineArray := utils.GetDescriptionTextForUpdate(configFile, label)
-					TextHelpField := ui.CreateTextReader(HelpField, ui.AutoSize, lineCount,ui.Vertical)
+					TextHelpField := ui.CreateTextReader(HelpField, ui.AutoSize, lineCount, ui.Vertical)
 					TextHelpField.SetBackColor(ui.ColorBlack)
 					TextHelpField.SetTextColor(ui.ColorWhiteBold)
 					TextHelpField.SetLineCount(lineCount)
@@ -150,9 +151,9 @@ func ConfigurationEditor(configMap map[string]string, configFile string) int{
 	userQuit := false
 	btnQuit.OnClick(func(ev ui.Event) {
 		dialog := ui.CreateConfirmationDialog("Are you sure?", "Do you wish to exit without running tests?", []string{"Yes", "No"}, 2)
-		dialog.OnClose(func(){
+		dialog.OnClose(func() {
 			result := dialog.Result()
-			if result ==1{
+			if result == 1 {
 				//RefreshScreen()
 				userQuit = true
 				Cleanup()
@@ -168,44 +169,38 @@ func ConfigurationEditor(configMap map[string]string, configFile string) int{
 		//newValuesHolder[label] = value
 		//oldValuesHolder[label] = value
 		isValid := true
-		for k,v := range newValuesHolder{
+		for k, v := range newValuesHolder {
 			//isValidValue, notice := utils.ValidateConfigKey(k, v)
-			if !isValid{
+			if !isValid {
 				break
 			}
 			isValid = utils.ValidateConfigKey(configFile, k, v)
-			if !isValid{
-				dialog := ui.CreateAlertDialog("Invalid Configuration Item", "The value set for "+k+"is not valid.","OK")
-				dialog.OnClose(func(){
+			if !isValid {
+				dialog := ui.CreateAlertDialog("Invalid Configuration Item", "The value set for "+k+"is not valid.", "OK")
+				dialog.OnClose(func() {
 					return
 				})
-			}else{
-				oldValue := k+"="+oldValuesHolder[k]
-				newValue := k+"="+v
+			} else {
+				oldValue := k + "=" + oldValuesHolder[k]
+				newValue := k + "=" + v
 				utils.UpdateConfigWithNewValue(configFile, oldValue, newValue)
 			}
-
-
-
-
 		}
 
 		configMap = utils.BuildMenuFromConfig(configFile)
-		tmpMainMenuString :=""
-		for k,_ := range configMap{
-			tmpMainMenuString +=k+"||"
+		tmpMainMenuString := ""
+		for k, _ := range configMap {
+			tmpMainMenuString += k + "||"
 		}
 		mainListBoxOptions = strings.Split(tmpMainMenuString, "||")
 		//ui.CreateLabel(fieldGroup, ui.AutoSize, ui.AutoSize, strings.Replace(labelBuffer+label,"_"," ",-1)+":", ui.Fixed)
 		//thisEditField := ui.CreateEditField(fieldGroup, ui.AutoSize, value, 0)
 	})
-	if userQuit{
+	if userQuit {
 		return 99
 	}
 	return 0
 }
-
-
 
 func CreateQuestionDialog(title, question string, buttons []string, defaultButton int) *QuestionDialog {
 	dlg := new(QuestionDialog)
@@ -214,12 +209,12 @@ func CreateQuestionDialog(title, question string, buttons []string, defaultButto
 	}
 
 	cw, ch := term.Size()
-	ui.DrawFrame(0,0,cw,40,ui.BorderThin)
+	ui.DrawFrame(0, 0, cw, 40, ui.BorderThin)
 	lines := strings.Split(question, "\n")
-	maxLen :=0
-	for _,v := range lines{
-		thisLen := len(v)*2
-		if thisLen>maxLen{
+	maxLen := 0
+	for _, v := range lines {
+		thisLen := len(v) * 2
+		if thisLen > maxLen {
 			maxLen = thisLen
 		}
 	}
@@ -230,18 +225,18 @@ func CreateQuestionDialog(title, question string, buttons []string, defaultButto
 	dlg.View.SetConstraints(30, 3)
 	dlg.View.SetModal(true)
 	dlg.View.SetPack(ui.Vertical)
-	currentPosX,currentPosY := dlg.View.Pos()
+	currentPosX, currentPosY := dlg.View.Pos()
 	dlg.View.SetPos(currentPosX-20, currentPosY)
 	ui.CreateFrame(dlg.View, 1, 1, ui.BorderNone, ui.Fixed)
 	dlg.View.SetAlign(ui.AlignCenter)
-	fbtn := ui.CreateFrame(dlg.View, 1, 1,ui.BorderNone, 1)
+	fbtn := ui.CreateFrame(dlg.View, 1, 1, ui.BorderNone, 1)
 	fbtn.SetAlign(ui.AlignCenter)
 	ui.CreateFrame(fbtn, 1, 1, ui.BorderNone, ui.AutoSize)
 
 	lb := ui.CreateLabel(fbtn, 10, 3, question, 1)
 
 	lb.SetMultiline(true)
-	ui.CreateFrame(fbtn, 1, 1,ui.BorderNone, ui.Fixed)
+	ui.CreateFrame(fbtn, 1, 1, ui.BorderNone, ui.Fixed)
 
 	ui.CreateFrame(dlg.View, 1, 1, ui.BorderNone, ui.Fixed)
 	frm1 := ui.CreateFrame(dlg.View, 16, 4, ui.BorderNone, ui.Fixed)
@@ -309,10 +304,10 @@ func CreateQuestionDialog(title, question string, buttons []string, defaultButto
 
 	return dlg
 }
-func formatter(line string){
+func formatter(line string) {
 	fmt.Println(line)
 }
-func Cleanup(){
+func Cleanup() {
 	ui.DeinitLibrary()
 	go ui.Stop()
 	cmd := exec.Command("reset")

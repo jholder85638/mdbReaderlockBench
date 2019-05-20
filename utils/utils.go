@@ -59,7 +59,15 @@ func ValidateConfigKey(configFile string, keyName string, valueToCheck string) b
 	for scanner.Scan() {
 		if strings.Contains(scanner.Text(), "$v_"+keyName+"_not") {
 			//check for "not" values
-
+			//rules := strings.ToLower(strings.Split(scanner.Text(),"=")[1])
+			//if valueToCheck ==rules{
+			//	return false
+			//
+			//}
+			testVal := strings.Split(scanner.Text(),"=")[1]
+			if valueToCheck==testVal {
+				isValid=false
+			}
 
 		}else if strings.Contains(scanner.Text(), "["){
 			continue

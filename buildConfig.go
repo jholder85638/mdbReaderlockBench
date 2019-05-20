@@ -13,7 +13,7 @@ func buildConfiguration(fileLocation string) {
 # Must be reachable from the host, and must $server
 # have the mailbox service installed and running. $server
 # $v_server=[ip],[hostname]
-# $v_not=0.0.0.0
+# $v_server_not=0.0.0.0
 server=0.0.0.0
 
 # The target mailbox server protocol where the $protocol
@@ -98,7 +98,7 @@ lmdb_stat_location=/opt/zimbra/openldap-2.4.39.2z/bin/mdb_stat
 lmdb_location=/opt/zimbra/data/ldap/mdb/db/
 
 # You may wish to enable debug mode. This can print useful information. $debug_mode
-$v_debug_mode=true,false
+# $v_debug_mode=true,false
 debug_mode=false
 
 # When the menus appear, the screen is cleared to make it more readable. $disable_clear_screen
