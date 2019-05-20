@@ -1,9 +1,16 @@
-package main
+package ui
 
 import (
 	ui "github.com/VladimirMarkelov/clui"
 	term "github.com/nsf/termbox-go"
+	_ "github.com/sirupsen/logrus"
+	_ "log"
+	"os"
+	"os/exec"
+	//"strconv"
 	"strings"
+	"fmt"
+	utils "../utils"
 )
 
 // OnClick sets the callback that is called when one clicks button
@@ -13,7 +20,7 @@ func (b Button) OnClick(fn func(ui.Event)) {
 }
 type QuestionDialog struct {
 	View    *ui.Window
-	result  int
+	Result  int
 	onClose func()
 }
 type Button struct {
@@ -23,6 +30,182 @@ type Button struct {
 	pressed     int32
 	onClick     func(ui.Event)
 }
+var OptionsRight *ui.Frame
+var HelpField *ui.Frame
+var newValuesHolder map[string]string
+func ConfigurationEditor(configMap map[string]string, configFile string) int{
+	tmpMainMenuString :=""
+	for k,_ := range configMap{
+		tmpMainMenuString +=k+"||"
+	}
+	mainListBoxOptions := strings.Split(tmpMainMenuString, "||")
+	cw, ch := term.Size()
+
+	view := ui.AddWindow(cw/2-45, ch/2-12, 1, 7, "ZCS LMDB Testing Configuration")
+
+	frmLeft := ui.CreateFrame(view, 8, 4, ui.BorderNone, 0)
+	frmLeft.SetPack(ui.Vertical)
+	//frmLeft.SetGaps(ui.KeepValue, 1)
+	frmLeft.SetPaddings(1, 1)
+
+
+
+	logBox := ui.CreateListBox(frmLeft, 20, 15, ui.Fixed)
+	for _,v := range mainListBoxOptions{
+		logBox.AddItem(v)
+	}
+	var fieldGroup *ui.Frame
+
+	frmRight := ui.CreateFrame(view, 70, 1, ui.BorderNone, 1)
+	HelpField = ui.CreateFrame(frmRight, 0, 0, ui.BorderNone, ui.Horizontal)
+	oldValuesHolder := make(map[string]string)
+
+	OptionsRight = frmRight
+	logBox.OnSelectItem(func(event ui.Event){
+		newValuesHolder = make(map[string]string)
+		OptionsRight.Destroy()
+		subItems := strings.Split(configMap[logBox.SelectedItemText()], "||")
+		frmRight := ui.CreateFrame(view, 1, 1, ui.BorderNone, ui.Vertical)
+		OptionsRight = frmRight
+		frmRight.SetPack(ui.Vertical)
+		frmRight.SetGaps(1, 0)
+		maxDeltalen :=0
+		for _,v := range subItems {
+			if len(v)>maxDeltalen{
+				maxDeltalen = len(v)
+			}
+		}
+		for _,v := range subItems {
+			if strings.Contains(v, "="){
+				fieldGroup = ui.CreateFrame(frmRight, 70, 1, ui.BorderNone, ui.Horizontal)
+				fieldGroup.SetPack(ui.Horizontal)
+				fieldGroup.SetGaps(1, 1)
+				label := strings.Split(v, "=")[0]
+
+				spacingBuffer :=maxDeltalen/2
+				if spacingBuffer>20{
+					spacingBuffer=20
+				}
+				labelTextLen := len(label)
+				labelBuffer :=""
+				for{
+					if labelTextLen<=spacingBuffer{
+						labelBuffer +=" "
+						labelTextLen++
+					}else{
+						break
+					}
+				}
+
+				value := strings.Split(v, "=")[1]
+				ui.CreateLabel(fieldGroup, ui.AutoSize, ui.AutoSize, strings.Replace(labelBuffer+label,"_"," ",-1)+":", ui.Fixed)
+				thisEditField := ui.CreateEditField(fieldGroup, ui.AutoSize, value, 0)
+				ui.CreateFrame(frmRight, 70, 1, ui.BorderNone, ui.Horizontal)
+
+				/////////
+				//store the current values in a map
+				//this will get updated on click
+				newValuesHolder[label] = value
+				oldValuesHolder[label] = value
+
+				thisEditField.OnChange(func(event ui.Event) {
+					newValuesHolder[label] = thisEditField.Title()
+				})
+				/////////
+
+				thisEditField.OnActive(func(active bool) {
+					HelpField.Destroy()
+					HelpField = ui.CreateFrame(frmRight, 70, 1, ui.BorderThin, ui.Horizontal)
+					HelpField.SetPack(ui.Horizontal)
+					HelpField.SetGaps(1, 1)
+					lineCount, lineArray := utils.GetDescriptionTextForUpdate(configFile, label)
+					TextHelpField := ui.CreateTextReader(HelpField, ui.AutoSize, lineCount,ui.Vertical)
+					TextHelpField.SetBackColor(ui.ColorBlack)
+					TextHelpField.SetTextColor(ui.ColorWhiteBold)
+					TextHelpField.SetLineCount(lineCount)
+					TextHelpField.Draw()
+					TextHelpField.OnDrawLine(func(ind int) string {
+						return fmt.Sprint(lineArray[ind])
+					})
+				})
+
+			}
+		}
+
+	})
+	frmRightHelp := ui.CreateFrame(frmRight, 8, 1, ui.BorderNone, ui.Fixed)
+	frmRightHelp.SetPaddings(1, 1)
+	frmRightHelp.SetGaps(1, ui.KeepValue)
+
+	frmEdit := ui.CreateFrame(frmLeft, 8, 1, ui.BorderNone, ui.Fixed)
+	frmEdit.SetPaddings(1, 1)
+	frmEdit.SetGaps(1, ui.KeepValue)
+	saveConfigBtn := ui.CreateButton(frmEdit, ui.AutoSize, 4, "Save Config", ui.Fixed)
+	saveConfigBtn.SetBackColor(ui.ColorCyan)
+	_ = ui.CreateButton(frmEdit, ui.AutoSize, 4, "Run Test", ui.Fixed)
+	ui.CreateFrame(frmEdit, 1, 1, ui.BorderNone, 1)
+	btnQuit := ui.CreateButton(frmEdit, ui.AutoSize, 4, "Quit", ui.Fixed)
+	btnQuit.SetBackColor(ui.ColorRed)
+	ui.ActivateControl(view, logBox)
+	userQuit := false
+	btnQuit.OnClick(func(ev ui.Event) {
+		dialog := ui.CreateConfirmationDialog("Are you sure?", "Do you wish to exit without running tests?", []string{"Yes", "No"}, 2)
+		dialog.OnClose(func(){
+			result := dialog.Result()
+			if result ==1{
+				//RefreshScreen()
+				userQuit = true
+				Cleanup()
+				event := ui.Event{Type: ui.EventCloseWindow, X: 1}
+				ui.ProcessEvent(event)
+				return
+			}
+		})
+	})
+
+	saveConfigBtn.OnClick(func(event ui.Event) {
+		//UpdateConfigWithNewValue(config string, oldval string, newval string)
+		//newValuesHolder[label] = value
+		//oldValuesHolder[label] = value
+		isValid := true
+		for k,v := range newValuesHolder{
+			//isValidValue, notice := utils.ValidateConfigKey(k, v)
+			if !isValid{
+				break
+			}
+			isValid = utils.ValidateConfigKey(configFile, k, v)
+			if !isValid{
+				dialog := ui.CreateAlertDialog("Invalid Configuration Item", "The value set for "+k+"is not valid.","OK")
+				dialog.OnClose(func(){
+					return
+				})
+			}else{
+				oldValue := k+"="+oldValuesHolder[k]
+				newValue := k+"="+v
+				utils.UpdateConfigWithNewValue(configFile, oldValue, newValue)
+			}
+
+
+
+
+		}
+
+		configMap = utils.BuildMenuFromConfig(configFile)
+		tmpMainMenuString :=""
+		for k,_ := range configMap{
+			tmpMainMenuString +=k+"||"
+		}
+		mainListBoxOptions = strings.Split(tmpMainMenuString, "||")
+		//ui.CreateLabel(fieldGroup, ui.AutoSize, ui.AutoSize, strings.Replace(labelBuffer+label,"_"," ",-1)+":", ui.Fixed)
+		//thisEditField := ui.CreateEditField(fieldGroup, ui.AutoSize, value, 0)
+	})
+	if userQuit{
+		return 99
+	}
+	return 0
+}
+
+
 
 func CreateQuestionDialog(title, question string, buttons []string, defaultButton int) *QuestionDialog {
 	dlg := new(QuestionDialog)
@@ -67,8 +250,7 @@ func CreateQuestionDialog(title, question string, buttons []string, defaultButto
 	bText := buttons[0]
 	btn1 := ui.CreateButton(frm1, ui.AutoSize, ui.AutoSize, bText, ui.Fixed)
 	btn1.OnClick(func(ev ui.Event) {
-		dlg.result = ui.DialogButton1
-
+		dlg.Result = ui.DialogButton1
 		ui.WindowManager().DestroyWindow(dlg.View)
 		ui.WindowManager().BeginUpdate()
 		closeFunc := dlg.onClose
@@ -83,7 +265,7 @@ func CreateQuestionDialog(title, question string, buttons []string, defaultButto
 		ui.CreateFrame(frm1, 1, 1, ui.BorderNone, 1)
 		btn2 = ui.CreateButton(frm1, ui.AutoSize, ui.AutoSize, buttons[1], ui.Fixed)
 		btn2.OnClick(func(ev ui.Event) {
-			dlg.result = ui.DialogButton2
+			dlg.Result = ui.DialogButton2
 			ui.WindowManager().DestroyWindow(dlg.View)
 			if dlg.onClose != nil {
 				dlg.onClose()
@@ -94,7 +276,7 @@ func CreateQuestionDialog(title, question string, buttons []string, defaultButto
 		ui.CreateFrame(frm1, 1, 1, ui.BorderNone, 1)
 		btn3 = ui.CreateButton(frm1, ui.AutoSize, ui.AutoSize, buttons[2], ui.Fixed)
 		btn3.OnClick(func(ev ui.Event) {
-			dlg.result = ui.DialogButton3
+			dlg.Result = ui.DialogButton3
 			ui.WindowManager().DestroyWindow(dlg.View)
 			if dlg.onClose != nil {
 				dlg.onClose()
@@ -113,8 +295,8 @@ func CreateQuestionDialog(title, question string, buttons []string, defaultButto
 	}
 
 	dlg.View.OnClose(func(ev ui.Event) bool {
-		if dlg.result == ui.DialogAlive {
-			dlg.result = ui.DialogClosed
+		if dlg.Result == ui.DialogAlive {
+			dlg.Result = ui.DialogClosed
 			if ev.X != 1 {
 				ui.WindowManager().DestroyWindow(dlg.View)
 			}
@@ -126,4 +308,18 @@ func CreateQuestionDialog(title, question string, buttons []string, defaultButto
 	})
 
 	return dlg
+}
+func formatter(line string){
+	fmt.Println(line)
+}
+func Cleanup(){
+	ui.DeinitLibrary()
+	go ui.Stop()
+	cmd := exec.Command("reset")
+	cmd.Stdout = os.Stdout
+	cmd.Stdin = os.Stdin
+	cmd.Stderr = os.Stderr
+	output := cmd.Run()
+	print(output)
+	print("\033[H\033[2J")
 }

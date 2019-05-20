@@ -1,18 +1,30 @@
 package main
 
 import (
+	zui "./ui"
 	"fmt"
 	"github.com/bmatsuo/lmdb-go/lmdb"
-	"log"
+	_ "github.com/nsf/termbox-go"
+	"runtime/debug"
+
+	//"github.com/gizak/termui"
+	log "github.com/sirupsen/logrus"
+	ui "github.com/VladimirMarkelov/clui"
+	//"github.com/ahmetalpbalkan/go-cursor"
+	//term "github.com/nsf/termbox-go"
 	"os"
 	"os/exec"
-	"runtime/debug"
+	_ "runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 )
-
+const (
+	defaultPrompt    = ">> "
+	ansiEraseDisplay = "\033[2J"
+	ansiResetCursor  = "\033[H"
+)
 // SafeCounter is safe to use concurrently.
 type SafeCounter struct {
 	testsRun int
@@ -27,6 +39,21 @@ var csrfToken string
 var adminAuthToken string
 var preAuthToken string
 var mdbPath string
+var endUserPassword string
+var endUserName string
+var disableSSLChecks bool
+var httpEndPoint string
+var canContinue bool
+var needBreak bool
+var options []string
+var configFile string
+var location string
+var debugEnabled bool
+var disableClearScreen bool
+var url string
+var csrfTokenNeeded bool
+var exitReason string
+
 
 // Inc increments the counter for the given key.
 func (c *SafeCounter) Inc() {
@@ -37,18 +64,27 @@ func (c *SafeCounter) Inc() {
 }
 
 func main(){
+	ui.InitLibrary()
+	defer ui.DeinitLibrary()
 	version := "1.2-Alpha"
 	initConfig(version)
 	if !canContinue{
-		setVariables()
-		fmt.Println("The configuration safety check has failed. This can happen if you hit ctrl-c.")
-		if debugEnabled{
-			fmt.Println("Debug information will be printed. This may help find the issue. Cannot continue, sorry.")
-			debug.PrintStack()
+		zui.Cleanup()
+		if len(exitReason) > 0 {
+			//log.Fatal(exitReason)
+		}else{
+			fmt.Println("The configuration safety check has failed. This can happen if you hit ctrl-c.")
+			if debugEnabled{
+				fmt.Println("Debug information will be printed. This may help find the issue. Cannot continue, sorry.")
+				debug.PrintStack()
+			}
 		}
 		os.Exit(1)
 	}
-	setVariables()
+	//setVariables()
+	//getCSRFToken()
+	//LoginOperation()
+	//os.Exit(1)
 	fmt.Println("======")
 	fmt.Println("Welcome to the Zimbra LDAP Database Utility " + version + "!")
 	fmt.Println("You should never run this on a production system.")
