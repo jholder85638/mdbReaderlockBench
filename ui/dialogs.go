@@ -1,14 +1,14 @@
 package ui
 
 import (
+	"../utils"
+	"fmt"
 	ui "github.com/VladimirMarkelov/clui"
 	term "github.com/nsf/termbox-go"
 	_ "github.com/sirupsen/logrus"
 	_ "log"
 	"os"
 	"os/exec"
-	"../utils"
-	"fmt"
 	//"strconv"
 	"strings"
 )
@@ -37,6 +37,7 @@ var HelpField *ui.Frame
 var newValuesHolder map[string]string
 
 func ConfigurationEditor(configMap map[string]string, configFile string) int {
+
 	tmpMainMenuString := ""
 	for k, _ := range configMap {
 		tmpMainMenuString += k + "||"
@@ -45,7 +46,7 @@ func ConfigurationEditor(configMap map[string]string, configFile string) int {
 	cw, ch := term.Size()
 
 	view := ui.AddWindow(cw/2-45, ch/2-12, 1, 7, "ZCS LMDB Testing Configuration")
-
+	oldValuesHolder := make(map[string]string)
 	frmLeft := ui.CreateFrame(view, 8, 4, ui.BorderNone, 0)
 	frmLeft.SetPack(ui.Vertical)
 	//frmLeft.SetGaps(ui.KeepValue, 1)
@@ -59,79 +60,134 @@ func ConfigurationEditor(configMap map[string]string, configFile string) int {
 
 	frmRight := ui.CreateFrame(view, 70, 1, ui.BorderNone, 1)
 	HelpField = ui.CreateFrame(frmRight, 0, 0, ui.BorderNone, ui.Horizontal)
-	oldValuesHolder := make(map[string]string)
 
 	OptionsRight = frmRight
+	firstLoad := true
+	isValid := true
 	logBox.OnSelectItem(func(event ui.Event) {
-		newValuesHolder = make(map[string]string)
-		OptionsRight.Destroy()
-		subItems := strings.Split(configMap[logBox.SelectedItemText()], "||")
-		frmRight := ui.CreateFrame(view, 1, 1, ui.BorderNone, ui.Vertical)
-		OptionsRight = frmRight
-		frmRight.SetPack(ui.Vertical)
-		frmRight.SetGaps(1, 0)
-		maxDeltalen := 0
-		for _, v := range subItems {
-			if len(v) > maxDeltalen {
-				maxDeltalen = len(v)
-			}
-		}
-		for _, v := range subItems {
-			if strings.Contains(v, "=") {
-				fieldGroup = ui.CreateFrame(frmRight, 70, 1, ui.BorderNone, ui.Horizontal)
-				fieldGroup.SetPack(ui.Horizontal)
-				fieldGroup.SetGaps(1, 1)
-				label := strings.Split(v, "=")[0]
 
-				spacingBuffer := maxDeltalen / 2
-				if spacingBuffer > 20 {
-					spacingBuffer = 20
+		//before moving onto the next page, we need to validate that what is currently
+		//on this page, is valid.
+
+		//UpdateConfigWithNewValue(config string, oldval string, newval string)
+		//newValuesHolder[label] = value
+		//oldValuesHolder[label] = value
+		var invalidKey string
+		if !firstLoad{
+			for k, v := range newValuesHolder {
+				//isValidValue, notice := utils.ValidateConfigKey(k, v)
+				isValid = utils.ValidateConfigKey(configFile, k, v)
+				if !isValid{
+					invalidKey = k
+					break
 				}
-				labelTextLen := len(label)
-				labelBuffer := ""
-				for {
-					if labelTextLen <= spacingBuffer {
-						labelBuffer += " "
-						labelTextLen++
-					} else {
-						break
+			}
+
+		}
+		firstLoad = false
+		//if !isValid{
+		//	//canBreak := false
+		//	dialog := ui.CreateAlertDialog("Invalid Configuration Item", "The value set for "+invalidKey+" is not valid.", "OK")
+		//	dialog.OnClose(func() {
+		//		return
+		//	})
+		//}else{
+		if isValid{
+			for k, v := range newValuesHolder {
+				//isValidValue, notice := utils.ValidateConfigKey(k, v)
+				oldValue := k + "=" + oldValuesHolder[k]
+				newValue := k + "=" + v
+				utils.UpdateConfigWithNewValue(configFile, oldValue, newValue)
+			}
+			configMap = utils.BuildMenuFromConfig(configFile)
+			tmpMainMenuString := ""
+			for k, _ := range configMap {
+				tmpMainMenuString += k + "||"
+			}
+			mainListBoxOptions = strings.Split(tmpMainMenuString, "||")
+			//ui.CreateLabel(fieldGroup, ui.AutoSize, ui.AutoSize, strings.Replace(labelBuffer+label,"_"," ",-1)+":", ui.Fixed)
+			//thisEditField := ui.CreateEditField(fieldGroup, ui.AutoSize, value, 0)
+
+			newValuesHolder = make(map[string]string)
+			OptionsRight.Destroy()
+			subItems := strings.Split(configMap[logBox.SelectedItemText()], "||")
+			frmRight := ui.CreateFrame(view, 1, 1, ui.BorderNone, ui.Vertical)
+			OptionsRight = frmRight
+			frmRight.SetPack(ui.Vertical)
+			frmRight.SetGaps(1, 0)
+			maxDeltalen := 0
+			for _, v := range subItems {
+				if len(v) > maxDeltalen {
+					maxDeltalen = len(v)
+				}
+			}
+			for _, v := range subItems {
+				if strings.Contains(v, "=") {
+					fieldGroup = ui.CreateFrame(frmRight, 70, 1, ui.BorderNone, ui.Horizontal)
+					fieldGroup.SetPack(ui.Horizontal)
+					fieldGroup.SetGaps(1, 1)
+					label := strings.Split(v, "=")[0]
+
+					spacingBuffer := maxDeltalen / 2
+					if spacingBuffer > 20 {
+						spacingBuffer = 20
 					}
-				}
+					labelTextLen := len(label)
+					labelBuffer := ""
+					for {
+						if labelTextLen <= spacingBuffer {
+							labelBuffer += " "
+							labelTextLen++
+						} else {
+							break
+						}
+					}
 
-				value := strings.Split(v, "=")[1]
-				ui.CreateLabel(fieldGroup, ui.AutoSize, ui.AutoSize, strings.Replace(labelBuffer+label, "_", " ", -1)+":", ui.Fixed)
-				thisEditField := ui.CreateEditField(fieldGroup, ui.AutoSize, value, 0)
-				ui.CreateFrame(frmRight, 70, 1, ui.BorderNone, ui.Horizontal)
+					value := strings.Split(v, "=")[1]
+					ui.CreateLabel(fieldGroup, ui.AutoSize, ui.AutoSize, strings.Replace(labelBuffer+label, "_", " ", -1)+":", ui.Fixed)
+					thisEditField := ui.CreateEditField(fieldGroup, ui.AutoSize, value, 1)
+					ui.CreateFrame(frmRight, 70, 1, ui.BorderNone, ui.Horizontal)
 
-				/////////
-				//store the current values in a map
-				//this will get updated on click
-				newValuesHolder[label] = value
-				oldValuesHolder[label] = value
+					/////////
+					//store the current values in a map
+					//this will get updated on click
+					newValuesHolder[label] = value
+					oldValuesHolder[label] = value
 
-				thisEditField.OnChange(func(event ui.Event) {
-					newValuesHolder[label] = thisEditField.Title()
-				})
-				/////////
-
-				thisEditField.OnActive(func(active bool) {
-					HelpField.Destroy()
-					HelpField = ui.CreateFrame(frmRight, 70, 1, ui.BorderThin, ui.Horizontal)
-					HelpField.SetPack(ui.Horizontal)
-					HelpField.SetGaps(1, 1)
-					lineCount, lineArray := utils.GetDescriptionTextForUpdate(configFile, label)
-					TextHelpField := ui.CreateTextReader(HelpField, ui.AutoSize, lineCount, ui.Vertical)
-					TextHelpField.SetBackColor(ui.ColorBlack)
-					TextHelpField.SetTextColor(ui.ColorWhiteBold)
-					TextHelpField.SetLineCount(lineCount)
-					TextHelpField.Draw()
-					TextHelpField.OnDrawLine(func(ind int) string {
-						return fmt.Sprint(lineArray[ind])
+					thisEditField.OnChange(func(event ui.Event) {
+						newValuesHolder[label] = thisEditField.Title()
 					})
-				})
+					/////////
 
+					thisEditField.OnActive(func(active bool) {
+						HelpField.Destroy()
+						HelpField = ui.CreateFrame(frmRight, 70, 1, ui.BorderThin, ui.Horizontal)
+						HelpField.SetPack(ui.Horizontal)
+						HelpField.SetGaps(1, 1)
+						lineCount, lineArray := utils.GetDescriptionTextForUpdate(configFile, label)
+						TextHelpField := ui.CreateTextReader(HelpField, ui.AutoSize, lineCount, ui.Vertical)
+						TextHelpField.SetBackColor(ui.ColorBlack)
+						TextHelpField.SetTextColor(ui.ColorWhiteBold)
+						TextHelpField.SetLineCount(lineCount)
+						TextHelpField.Draw()
+						TextHelpField.OnDrawLine(func(ind int) string {
+							return fmt.Sprint(lineArray[ind])
+						})
+					})
+
+				}
 			}
+		}else{
+			dialog := ui.CreateAlertDialog("Invalid Configuration Item", "The value set for "+invalidKey+" is not valid.", "OK")
+			dialog.OnClose(func() {
+				return
+			})
 		}
+
+
+
+
+
 
 	})
 	frmRightHelp := ui.CreateFrame(frmRight, 8, 1, ui.BorderNone, ui.Fixed)
@@ -143,7 +199,8 @@ func ConfigurationEditor(configMap map[string]string, configFile string) int {
 	frmEdit.SetGaps(1, ui.KeepValue)
 	saveConfigBtn := ui.CreateButton(frmEdit, ui.AutoSize, 4, "Save Config", ui.Fixed)
 	saveConfigBtn.SetBackColor(ui.ColorCyan)
-	_ = ui.CreateButton(frmEdit, ui.AutoSize, 4, "Run Test", ui.Fixed)
+	//Test Button is here..
+	ui.CreateButton(frmEdit, ui.AutoSize, 4, "Run Test", ui.Fixed)
 	ui.CreateFrame(frmEdit, 1, 1, ui.BorderNone, 1)
 	btnQuit := ui.CreateButton(frmEdit, ui.AutoSize, 4, "Quit", ui.Fixed)
 	btnQuit.SetBackColor(ui.ColorRed)
@@ -195,6 +252,9 @@ func ConfigurationEditor(configMap map[string]string, configFile string) int {
 		mainListBoxOptions = strings.Split(tmpMainMenuString, "||")
 		//ui.CreateLabel(fieldGroup, ui.AutoSize, ui.AutoSize, strings.Replace(labelBuffer+label,"_"," ",-1)+":", ui.Fixed)
 		//thisEditField := ui.CreateEditField(fieldGroup, ui.AutoSize, value, 0)
+	})
+	btnQuit.OnClick(func(ev ui.Event) {
+
 	})
 	if userQuit {
 		return 99
